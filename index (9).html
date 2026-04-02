@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Certificate Verification — ROS2 Basics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+/* ─── RESET ──────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+/* ─── VARIABLES ──────────────────────────────── */
+:root{
+  /* ── Page theme ── */
+  --pg-bg   : #050f1e;
+  --pg-surf : #0a1d35;
+  --pg-surf2: #0d2340;
+  --pg-bdr  : rgba(55,138,221,.18);
+  --pg-bdr2 : rgba(55,138,221,.32);
+  --pg-txt  : #deeeff;
+  --pg-muted: #5a85b0;
+  --pg-acc  : #378ADD;
+  --pg-acc2 : #85B7EB;
+  /* ── Card theme (dark — matches page) ── */
+  --card-bg : #0a1d35;       /* same as pg-surf: dark navy card */
+  --card-bg2: #071525;       /* slightly deeper for inner sections */
+  --card-bdr: #185FA5;       /* blue-600 border */
+  --card-ring:#1a3f7a;       /* outer decorative ring */
+  --ink     : #deeeff;       /* light text on dark card */
+  --ink2    : #85B7EB;       /* secondary text */
+  --teal    : #378ADD;       /* accent — page accent blue */
+  --cyan    : #85B7EB;       /* highlight — page accent2 */
+  --lblue   : rgba(55,138,221,.35); /* divider fade */
+  --dk-blue : #0C447C;       /* band background */
+}
+
+/* ─── PAGE BASE ──────────────────────────────── */
+html,body{
+  min-height:100vh;
+  background:var(--pg-bg);
+  color:var(--pg-txt);
+  font-family:'Rajdhani',sans-serif;
+  overflow-x:hidden;
+}
+
+/* animated grid */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(55,138,221,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(55,138,221,.05) 1px,transparent 1px);
+  background-size:52px 52px;
+  animation:gridMove 24s linear infinite;
+}
+@keyframes gridMove{to{background-position:52px 52px;}}
+
+/* radial glows */
+.glow-tl{position:fixed;width:700px;height:700px;top:-250px;left:-250px;
+  background:radial-gradient(circle,rgba(24,95,165,.22) 0%,transparent 70%);
+  z-index:0;pointer-events:none;}
+.glow-br{position:fixed;width:500px;height:500px;bottom:-180px;right:-180px;
+  background:radial-gradient(circle,rgba(12,68,124,.28) 0%,transparent 70%);
+  z-index:0;pointer-events:none;}
+
+/* ─── PAGE LAYOUT ────────────────────────────── */
+.page{
+  position:relative;z-index:1;
+  min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:0 20px 72px;
+  gap:0;
+}
+
+/* ── TOP SECTION: header + search ── */
+.top-section{
+  width:100%;
+  display:flex;flex-direction:column;align-items:center;
+  gap:28px;
+  /* default: vertically centred on the page */
+  min-height:100vh;
+  justify-content:center;
+  padding:40px 20px;
+  transition:min-height .6s ease, padding .6s ease, justify-content .1s;
+}
+/* after verify: shrink to top, search sits at top */
+.top-section.compact{
+  min-height:unset;
+  justify-content:flex-start;
+  padding:40px 20px 28px;
+}
+
+/* ── BOTTOM SECTION: card + error ── */
+.bottom-section{
+  width:100%;
+  display:flex;flex-direction:column;align-items:center;
+  gap:24px;
+  padding:0 20px 60px;
+}
+
+/* ─── PAGE HEADER ────────────────────────────── */
+.page-header{text-align:center;animation:fadeD .7s ease both;transition:all .5s ease;}
+.compact .page-header .logo-pill{display:none;}
+.compact .page-header .page-sub{display:none;}
+.compact .page-title{font-size:clamp(1.2rem,3vw,2rem);margin-bottom:0;}
+@keyframes fadeD{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:none}}
+@keyframes fadeU{from{opacity:0;transform:translateY( 18px)}to{opacity:1;transform:none}}
+
+.logo-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--pg-surf2);border:1px solid var(--pg-bdr2);
+  border-radius:100px;padding:6px 18px;
+  font-family:'Share Tech Mono',monospace;font-size:.65rem;
+  letter-spacing:.14em;color:var(--pg-acc2);margin-bottom:20px;
+}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--pg-acc);
+  animation:ldot 2s ease-in-out infinite;}
+@keyframes ldot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+
+.page-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(1.8rem,5vw,3.2rem);font-weight:900;
+  letter-spacing:.06em;color:#E6F1FB;line-height:1.1;margin-bottom:10px;
+}
+.page-sub{
+  font-size:.88rem;color:var(--pg-muted);max-width:420px;
+  margin:0 auto;line-height:1.6;
+  font-family:'Share Tech Mono',monospace;font-size:.7rem;letter-spacing:.04em;
+}
+
+/* ─── SEARCH BAR ─────────────────────────────── */
+.search-wrap{
+  width:100%;max-width:580px;
+  animation:fadeU .7s .12s ease both;
+  transition:max-width .5s ease;
+}
+.compact .search-wrap{max-width:min(1020px,96vw);}
+.input-row{
+  display:flex;gap:10px;background:var(--pg-surf);
+  border:1px solid var(--pg-bdr);border-radius:12px;
+  padding:8px 8px 8px 20px;
+  transition:border-color .3s,box-shadow .3s;
+}
+.input-row:focus-within{
+  border-color:var(--pg-acc);
+  box-shadow:0 0 0 3px rgba(55,138,221,.12),0 6px 30px rgba(12,68,124,.2);
+}
+#certInput{
+  flex:1;background:transparent;border:none;outline:none;
+  font-family:'Share Tech Mono',monospace;font-size:.88rem;
+  color:var(--pg-txt);letter-spacing:.06em;
+}
+#certInput::placeholder{color:var(--pg-muted);}
+#verifyBtn{
+  background:var(--pg-acc);color:#fff;border:none;
+  border-radius:8px;padding:10px 26px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.78rem;letter-spacing:.12em;
+  text-transform:uppercase;cursor:pointer;
+  transition:background .2s,transform .15s,box-shadow .2s;
+  white-space:nowrap;
+}
+#verifyBtn:hover{background:var(--pg-acc2);color:#042C53;
+  box-shadow:0 4px 20px rgba(55,138,221,.4);transform:translateY(-1px);}
+#verifyBtn:active{transform:none;}
+#verifyBtn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.hint{
+  margin-top:9px;text-align:center;
+  font-family:'Share Tech Mono',monospace;font-size:.65rem;
+  color:var(--pg-muted);letter-spacing:.06em;
+}
+.hint em{color:var(--pg-acc2);font-style:normal;}
+
+/* ─── STATUS LINE ────────────────────────────── */
+#statusMsg{
+  font-family:'Share Tech Mono',monospace;font-size:.78rem;
+  color:var(--pg-muted);text-align:center;min-height:18px;
+}
+
+/* ═══════════════════════════════════════════════
+   FLIP CARD
+═══════════════════════════════════════════════ */
+.card-scene{
+  width:min(1020px,96vw);
+  perspective:1400px;
+  display:none;
+}
+.card-scene.visible{display:block;animation:fadeU .5s ease both;}
+
+.card-inner{
+  /* CSS grid: both faces share the same single cell.
+     The taller face naturally sets the row height.
+     No JS height measurement needed. */
+  display:grid;
+  grid-template-columns:1fr;
+  transform-style:preserve-3d;
+  transition:transform .8s cubic-bezier(.4,0,.2,1);
+}
+.card-inner.flipped{transform:rotateY(180deg);}
+
+/* both faces share chrome */
+.face{
+  /* both sit in grid row 1, column 1 — stacked */
+  grid-row:1;
+  grid-column:1;
+  width:100%;
+  border-radius:8px;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  background:var(--card-bg);
+  border:1.5px solid var(--card-bdr);
+  box-shadow:0 0 0 10px rgba(55,138,221,.05),0 20px 60px rgba(4,44,83,.6);
+  outline:1.5px solid rgba(55,138,221,.22);
+  outline-offset:8px;
+  padding:28px 80px 26px;
+}
+
+/* back face: rotated 180° in the same grid cell */
+.face-back{
+  transform:rotateY(180deg);
+}
+
+/* ── shared internal pieces ── */
+
+/* spinning gears header */
+.gear-header{
+  display:flex;align-items:center;justify-content:center;
+  gap:14px;margin-bottom:6px;
+}
+.gear{width:34px;height:34px;flex-shrink:0;
+  animation:gspin 10s linear infinite;}
+.gear.rev{animation-direction:reverse;animation-duration:8s;}
+@keyframes gspin{to{transform:rotate(360deg);}}
+.card-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(20px,3.5vw,32px);font-weight:900;
+  letter-spacing:.1em;color:#E6F1FB;line-height:1;
+  white-space:nowrap;
+}
+
+/* certified banner */
+.cert-band{
+  background:linear-gradient(135deg,#071525 0%,#0a1d35 100%);border:1px solid rgba(55,138,221,.25);
+  color:#fff;text-align:center;padding:13px 20px;border-radius:4px;
+  margin:18px 0 0;position:relative;overflow:hidden;
+}
+.cert-band::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    -45deg,transparent,transparent 10px,
+    rgba(255,255,255,.04) 10px,rgba(255,255,255,.04) 20px);
+}
+.cert-label{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(18px,3.5vw,28px);font-weight:700;
+  letter-spacing:.32em;position:relative;
+}
+.cert-label .c{color:var(--pg-acc2);text-shadow:0 0 20px rgba(55,138,221,.7);}
+.c-nodes{
+  position:absolute;top:50%;transform:translateY(-50%);
+  display:flex;align-items:center;gap:5px;
+}
+.c-nodes.l{left:14px;}
+.c-nodes.r{right:14px;}
+.cn{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--pg-acc2);
+  animation:cnPulse 2s ease-in-out infinite;
+}
+.cn:last-child{animation-delay:.4s;}
+.ct{width:28px;height:2px;background:var(--pg-acc2);opacity:.6;}
+@keyframes cnPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.3;transform:scale(.6);}}
+
+/* divider */
+.cert-div{
+  display:flex;align-items:center;gap:10px;
+  margin:16px 0;
+}
+.cert-div::before,.cert-div::after{
+  content:'';flex:1;height:1.5px;
+  background:linear-gradient(90deg,transparent,rgba(55,138,221,.4),transparent);
+}
+.ddot{width:8px;height:8px;border-radius:50%;background:var(--pg-acc);
+  box-shadow:0 0 8px rgba(55,138,221,.6);}
+
+/* info grid */
+.info-grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:14px 32px;
+}
+.info-block{display:flex;flex-direction:column;gap:3px;}
+.info-lbl{
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:.2em;
+  color:var(--pg-acc2);text-transform:uppercase;
+}
+.info-val{
+  font-family:'Rajdhani',sans-serif;
+  font-size:clamp(14px,2vw,19px);font-weight:700;
+  color:var(--ink);letter-spacing:.03em;
+  word-break:break-word;
+}  /* --ink is now light */
+.info-val.orb{font-family:'Orbitron',sans-serif;font-size:clamp(12px,1.8vw,16px);}
+
+/* stat pills */
+.stat-row{display:flex;gap:12px;margin:16px 0;}
+.stat-pill{
+  flex:1;
+  background:var(--pg-surf2);
+  border:1.5px solid rgba(55,138,221,.35);border-radius:50px;
+  padding:10px 16px;text-align:center;
+  transition:transform .22s,box-shadow .22s;
+}
+.stat-pill:hover{transform:translateY(-4px);
+  box-shadow:0 10px 22px rgba(0,181,200,.26);}
+.stat-num{
+  display:block;font-family:'Orbitron',sans-serif;
+  font-size:22px;font-weight:700;color:var(--pg-acc2);
+}
+.stat-lbl{
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;letter-spacing:.14em;
+  color:var(--pg-acc2);text-transform:uppercase;
+}
+
+/* verify section */
+.verify-box{
+  background:var(--card-bg2);
+  border-left:4px solid rgba(55,138,221,.5);
+  border-radius:0 4px 4px 0;
+  padding:14px 18px;margin:16px 0;
+}
+.verify-lbl{
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:.2em;
+  color:var(--pg-acc2);text-transform:uppercase;margin-bottom:8px;
+}
+.verify-link{
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--pg-acc2);
+  display:flex;align-items:flex-start;gap:7px;
+  margin-bottom:5px;text-decoration:none;
+  word-break:break-all;transition:color .2s;line-height:1.4;
+}
+.verify-link:hover{color:var(--pg-txt);}
+.vdot{width:6px;height:6px;border-radius:50%;
+  background:var(--pg-acc);flex-shrink:0;margin-top:3px;}
+
+/* footer band */
+.card-footer{margin-top:16px;}
+.footer-line{
+  width:100%;height:1.5px;margin-bottom:12px;
+  background:linear-gradient(90deg,transparent,var(--dk-blue) 30%,
+    var(--teal) 50%,var(--dk-blue) 70%,transparent);
+}
+.issued-by{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(8px,1.2vw,11px);letter-spacing:.22em;
+  color:var(--pg-acc2);text-transform:uppercase;text-align:center;
+}
+.issued-by span{color:var(--pg-acc);}
+
+/* action buttons */
+.btn-row{display:flex;gap:12px;margin-top:14px;}
+.btn-outline{
+  flex:1;padding:10px 0;border-radius:4px;
+  font-family:'Share Tech Mono',monospace;font-size:.72rem;
+  letter-spacing:.12em;text-transform:uppercase;
+  text-decoration:none;text-align:center;display:inline-block;
+  border:2px solid var(--pg-acc);color:var(--pg-acc2);
+  background:transparent;cursor:pointer;
+  position:relative;overflow:hidden;
+  transition:color .28s,box-shadow .28s;
+}
+.btn-outline::after{
+  content:'';position:absolute;inset:0;background:var(--pg-acc);
+  transform:scaleX(0);transform-origin:left;
+  transition:transform .3s ease;z-index:0;
+}
+.btn-outline:hover::after{transform:scaleX(1);}
+.btn-outline:hover{color:#fff;box-shadow:0 5px 18px rgba(55,138,221,.3);}
+.btn-outline span{position:relative;z-index:1;}
+
+.btn-fill{
+  flex:1.6;padding:10px 0;border-radius:4px;
+  font-family:'Share Tech Mono',monospace;font-size:.72rem;
+  letter-spacing:.12em;text-transform:uppercase;
+  text-decoration:none;text-align:center;display:inline-block;
+  border:none;background:var(--pg-acc);color:#fff;cursor:pointer;
+  position:relative;overflow:hidden;
+  transition:box-shadow .25s;
+}
+.scan{
+  position:absolute;left:0;top:-100%;width:100%;height:100%;
+  background:linear-gradient(180deg,transparent 40%,
+    rgba(77,217,236,.38) 50%,transparent 60%);
+  pointer-events:none;z-index:1;
+}
+.btn-fill:hover .scan{animation:scanAnim .55s ease;}
+@keyframes scanAnim{from{top:-100%}to{top:100%}}
+.btn-fill:hover{background:var(--pg-acc2);color:#042C53;box-shadow:0 6px 22px rgba(55,138,221,.38);}
+.btn-fill span{position:relative;z-index:2;}
+
+/* ── FRONT face specific ── */
+.front-inner{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  min-height:260px;
+  gap:10px;
+  text-align:center;
+}
+.front-course{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(24px,4.5vw,42px);
+  font-weight:900;letter-spacing:.08em;
+  color:#E6F1FB;line-height:1.15;
+}
+.front-org{
+  font-family:'Share Tech Mono',monospace;
+  font-size:clamp(13px,2vw,18px);letter-spacing:.22em;
+  color:var(--pg-acc2);text-transform:uppercase;
+}
+.front-hint{
+  margin-top:14px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;letter-spacing:.1em;color:var(--pg-muted);
+  display:flex;align-items:center;gap:7px;
+}
+.front-hint::before{
+  content:'';display:inline-block;
+  width:6px;height:6px;border-radius:50%;
+  background:var(--pg-acc);flex-shrink:0;
+  animation:ldot 2s ease-in-out infinite;
+}
+
+/* ── status pills ── */
+.status-pill{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.62rem;letter-spacing:.1em;
+  padding:3px 12px;border-radius:100px;
+  text-transform:uppercase;display:inline-block;
+}
+.status-pill.valid  {background:rgba(29,158,117,.15);color:#5DCAA5;border:1px solid rgba(29,158,117,.35);}
+.status-pill.revoked{background:rgba(216,90,48,.15) ;color:#F0997B;border:1px solid rgba(216,90,48,.35);}
+
+/* ── cert-id mono badge ── */
+.cert-mono{
+  font-family:'Share Tech Mono',monospace;font-size:.65rem;
+  letter-spacing:.1em;color:var(--pg-acc2);
+  background:rgba(55,138,221,.1);
+  border:1px solid rgba(55,138,221,.25);
+  border-radius:4px;padding:3px 9px;
+  display:inline-block;
+}
+
+/* ── back top row ── */
+.back-top-row{
+  display:flex;justify-content:space-between;
+  align-items:center;margin-bottom:12px;
+}
+
+/* ─── ERROR CARD ─────────────────────────────── */
+.error-card{
+  width:min(880px,94vw);display:none;
+  flex-direction:column;align-items:center;
+  gap:12px;text-align:center;
+  background:var(--pg-surf);border:1.5px solid var(--card-bdr);
+  border-radius:8px;padding:48px 40px;
+  box-shadow:0 20px 60px rgba(4,44,83,.6);
+  outline:1.5px solid rgba(55,138,221,.22);outline-offset:8px;
+}
+.error-card.show{display:flex;animation:fadeU .4s ease;}
+.err-code{font-family:'Orbitron',sans-serif;font-size:3rem;font-weight:900;color:var(--pg-acc2);}
+.err-title{font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--pg-acc);letter-spacing:.06em;}
+.err-sub{font-family:'Share Tech Mono',monospace;font-size:.78rem;color:var(--pg-muted);line-height:1.7;}
+
+/* ─── DEMO CHIPS ─────────────────────────────── */
+.demo-divider{
+  width:100%;max-width:620px;
+  display:flex;align-items:center;gap:12px;
+  color:var(--pg-muted);font-family:'Share Tech Mono',monospace;
+  font-size:.65rem;letter-spacing:.1em;
+  animation:fadeU .7s .4s ease both;
+}
+.demo-divider::before,.demo-divider::after{
+  content:'';flex:1;height:1px;background:var(--pg-bdr);}
+.demo-chips{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  max-width:620px;animation:fadeU .7s .5s ease both;
+}
+.chip{
+  font-family:'Share Tech Mono',monospace;font-size:.64rem;
+  padding:6px 14px;background:var(--pg-surf);
+  border:1px solid var(--pg-bdr);border-radius:4px;
+  color:var(--pg-acc2);cursor:pointer;
+  transition:all .2s;letter-spacing:.06em;text-transform:uppercase;
+}
+.chip:hover{border-color:var(--pg-acc);background:rgba(55,138,221,.08);
+  color:var(--pg-acc2);transform:translateY(-1px);}
+
+/* ─── PAGE FOOTER ────────────────────────────── */
+.pg-footer{
+  text-align:center;font-family:'Share Tech Mono',monospace;
+  font-size:.65rem;color:var(--pg-muted);letter-spacing:.08em;
+  animation:fadeU .7s .6s ease both;
+}
+.pg-footer a{color:var(--pg-acc2);text-decoration:none;}
+.pg-footer a:hover{color:var(--pg-acc2);}
+
+/* ─── RESPONSIVE ─────────────────────────────── */
+@media(max-width:560px){
+  .face{padding:28px 20px 24px;}
+  .info-grid{grid-template-columns:1fr;}
+  .stat-row{flex-wrap:wrap;}
+  .btn-row{flex-direction:column;}
+  .front-course{font-size:clamp(20px,7vw,32px);}
+}
+</style>
+</head>
+<body>
+
+<div class="glow-tl"></div>
+<div class="glow-br"></div>
+
+<div class="page">
+
+  <!-- TOP: header + search (centered until verify) -->
+  <div class="top-section" id="topSection">
+
+    <div class="page-header">
+      <div class="logo-pill">
+        <span class="live-dot"></span>
+        CYBER AI DEPARTMENT — VERIFICATION PORTAL
+      </div>
+      <h1 class="page-title">CERTIFICATE VERIFICATION</h1>
+    </div>
+
+    <div class="search-wrap">
+      <div class="input-row">
+        <input id="certInput" type="text" placeholder="CERT-R2A26030001"
+          autocomplete="off" spellcheck="false" aria-label="Certificate ID"/>
+        <button id="verifyBtn" onclick="runVerify()">Verify</button>
+      </div>
+    </div>
+
+  </div><!-- /top-section -->
+
+  <p id="statusMsg" style="display:none"></p>
+
+  <!-- BOTTOM: card + error -->
+  <div class="bottom-section">
+
+  <!-- FLIP CARD -->
+  <div class="card-scene" id="cardScene">
+    <div class="card-inner" id="cardInner">
+
+      <!-- ══ FRONT ══ -->
+      <div class="face face-front" id="cardFront">
+        <!-- gear header -->
+        <div class="gear-header">
+          <svg class="gear" viewBox="0 0 50 50" fill="none">
+            <circle cx="25" cy="25" r="13" fill="none" stroke="#378ADD" stroke-width="3"/>
+            <circle cx="25" cy="25" r="5" fill="#378ADD"/>
+            <rect x="22" y="7"  width="6" height="9" rx="2" fill="#378ADD"/>
+            <rect x="22" y="34" width="6" height="9" rx="2" fill="#378ADD"/>
+            <rect x="7"  y="22" width="9" height="6" rx="2" fill="#378ADD"/>
+            <rect x="34" y="22" width="9" height="6" rx="2" fill="#378ADD"/>
+            <rect x="10" y="10" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(45 13 14.5)"/>
+            <rect x="34" y="10" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(-45 37 14.5)"/>
+            <rect x="10" y="31" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(-45 13 35.5)"/>
+            <rect x="34" y="31" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(45 37 35.5)"/>
+          </svg>
+          <span class="card-title">ROS2 BASICS</span>
+          <svg class="gear rev" viewBox="0 0 50 50" fill="none">
+            <circle cx="25" cy="25" r="13" fill="none" stroke="#378ADD" stroke-width="3"/>
+            <circle cx="25" cy="25" r="5" fill="#378ADD"/>
+            <rect x="22" y="7"  width="6" height="9" rx="2" fill="#378ADD"/>
+            <rect x="22" y="34" width="6" height="9" rx="2" fill="#378ADD"/>
+            <rect x="7"  y="22" width="9" height="6" rx="2" fill="#378ADD"/>
+            <rect x="34" y="22" width="9" height="6" rx="2" fill="#378ADD"/>
+            <rect x="10" y="10" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(45 13 14.5)"/>
+            <rect x="34" y="10" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(-45 37 14.5)"/>
+            <rect x="10" y="31" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(-45 13 35.5)"/>
+            <rect x="34" y="31" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(45 37 35.5)"/>
+          </svg>
+        </div>
+
+        <!-- certified band -->
+        <div class="cert-band">
+          <div class="c-nodes l"><div class="cn"></div><div class="ct"></div><div class="cn"></div></div>
+          <p class="cert-label">&#x2B21;&nbsp;<span class="c">CERTIFIED</span>&nbsp;&#x2B21;</p>
+          <div class="c-nodes r"><div class="cn"></div><div class="ct"></div><div class="cn"></div></div>
+        </div>
+
+        <!-- divider -->
+        <div class="cert-div"><div class="ddot"></div></div>
+
+        <!-- FRONT BODY: course name + org -->
+        <div class="front-inner">
+          <div class="front-course">ROS2 Course</div>
+          <div class="front-org">Cyber Robot</div>
+        </div>
+
+        <!-- footer -->
+        <div class="card-footer">
+          <div class="footer-line"></div>
+          <p class="issued-by">Issued by <span>Robotics Training Program</span></p>
+        </div>
+      </div><!-- /face-front -->
+
+      <!-- ══ BACK ══ -->
+      <div class="face face-back" id="cardBack">
+        <!-- gear header -->
+        <div class="gear-header">
+          <svg class="gear" viewBox="0 0 50 50" fill="none">
+            <circle cx="25" cy="25" r="13" fill="none" stroke="#378ADD" stroke-width="3"/>
+            <circle cx="25" cy="25" r="5" fill="#378ADD"/>
+            <rect x="22" y="7"  width="6" height="9" rx="2" fill="#378ADD"/>
+            <rect x="22" y="34" width="6" height="9" rx="2" fill="#378ADD"/>
+            <rect x="7"  y="22" width="9" height="6" rx="2" fill="#378ADD"/>
+            <rect x="34" y="22" width="9" height="6" rx="2" fill="#378ADD"/>
+            <rect x="10" y="10" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(45 13 14.5)"/>
+            <rect x="34" y="10" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(-45 37 14.5)"/>
+            <rect x="10" y="31" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(-45 13 35.5)"/>
+            <rect x="34" y="31" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(45 37 35.5)"/>
+          </svg>
+          <span class="card-title">ROS2 BASICS</span>
+          <svg class="gear rev" viewBox="0 0 50 50" fill="none">
+            <circle cx="25" cy="25" r="13" fill="none" stroke="#378ADD" stroke-width="3"/>
+            <circle cx="25" cy="25" r="5" fill="#378ADD"/>
+            <rect x="22" y="7"  width="6" height="9" rx="2" fill="#378ADD"/>
+            <rect x="22" y="34" width="6" height="9" rx="2" fill="#378ADD"/>
+            <rect x="7"  y="22" width="9" height="6" rx="2" fill="#378ADD"/>
+            <rect x="34" y="22" width="9" height="6" rx="2" fill="#378ADD"/>
+            <rect x="10" y="10" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(45 13 14.5)"/>
+            <rect x="34" y="10" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(-45 37 14.5)"/>
+            <rect x="10" y="31" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(-45 13 35.5)"/>
+            <rect x="34" y="31" width="6" height="9" rx="2" fill="#378ADD" transform="rotate(45 37 35.5)"/>
+          </svg>
+        </div>
+
+        <!-- certified band -->
+        <div class="cert-band">
+          <div class="c-nodes l"><div class="cn"></div><div class="ct"></div><div class="cn"></div></div>
+          <p class="cert-label">&#x2B21;&nbsp;<span class="c">CERTIFIED</span>&nbsp;&#x2B21;</p>
+          <div class="c-nodes r"><div class="cn"></div><div class="ct"></div><div class="cn"></div></div>
+        </div>
+
+        <!-- cert ID + status -->
+        <div class="back-top-row" style="margin-top:14px;">
+          <span class="cert-mono" id="backId">—</span>
+          <span class="status-pill" id="backStatus">valid</span>
+        </div>
+
+        <!-- divider -->
+        <div class="cert-div"><div class="ddot"></div></div>
+
+        <!-- info grid -->
+        <div class="info-grid">
+          <div class="info-block">
+            <span class="info-lbl">Student Name</span>
+            <span class="info-val orb" id="backName">—</span>
+          </div>
+          <div class="info-block">
+            <span class="info-lbl">Completion Date</span>
+            <span class="info-val" id="backDate">—</span>
+          </div>
+          <div class="info-block">
+            <span class="info-lbl">Course</span>
+            <span class="info-val" id="backCourse">—</span>
+          </div>
+          <div class="info-block">
+            <span class="info-lbl">Issued By</span>
+            <span class="info-val">Cyber AI Dept.</span>
+          </div>
+        </div>
+
+        <!-- stat pills -->
+        <div class="stat-row">
+          <div class="stat-pill">
+            <span class="stat-num" id="backHours">—</span>
+            <span class="stat-lbl">Hours</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-num" id="backSessions">—</span>
+            <span class="stat-lbl">Sessions</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-num" id="backCheck">&#10003;</span>
+            <span class="stat-lbl">Status</span>
+          </div>
+        </div>
+
+        <!-- verify section -->
+        <div class="verify-box">
+          <p class="verify-lbl">&#9658; Verification Details</p>
+          <a class="verify-link" id="backStudentLink" href="#" target="_blank" rel="noopener">
+            <span class="vdot"></span>
+            <span id="backStudentTxt">Student Profile: —</span>
+          </a>
+          <a class="verify-link" href="https://github.com/cyber-ai-dep/ros2-basics-certification"
+             target="_blank" rel="noopener">
+            <span class="vdot"></span>
+            Course Repo: github.com/cyber-ai-dep/ros2-basics-certification
+          </a>
+        </div>
+
+        <!-- footer + buttons -->
+        <div class="card-footer">
+          <div class="footer-line"></div>
+          <p class="issued-by">Issued by <span>Robotics Training Program</span></p>
+          <div class="btn-row">
+            <a class="btn-outline" id="backProfileBtn" href="#" target="_blank" rel="noopener">
+              <span>Profile &#8599;</span>
+            </a>
+            <a class="btn-fill" id="backPdfBtn" href="#" target="_blank" rel="noopener">
+              <div class="scan"></div>
+              <span>&#10003; View Certificate PDF</span>
+            </a>
+          </div>
+          <!-- flip back hint -->
+          <p style="text-align:center;margin-top:14px;font-family:'Share Tech Mono',monospace;
+             font-size:10px;letter-spacing:.1em;color:var(--pg-muted);cursor:pointer;"
+             onclick="flipBack()">
+            &#9664; Click card to flip back
+          </p>
+        </div>
+
+      </div><!-- /face-back -->
+    </div><!-- /card-inner -->
+  </div><!-- /card-scene -->
+
+  <!-- ERROR CARD -->
+  <div class="error-card" id="errorCard">
+    <div class="err-code">404</div>
+    <div class="err-title">Certificate Not Found</div>
+    <div class="err-sub">
+      No record matches <strong id="errorId"></strong>.<br/>
+      Double-check the ID and try again.
+    </div>
+  </div>
+
+
+
+  </div><!-- /bottom-section -->
+
+  <footer class="pg-footer">
+    &copy; 2026 Cyber AI Department &nbsp;&middot;&nbsp;
+    <a href="graduates/README.md">Graduates Index</a> &nbsp;&middot;&nbsp;
+    <a href="Ros2-basic-course/README.md">Course Details</a>
+  </footer>
+
+</div><!-- /page -->
+
+<script>
+/* ── DATA ───────────────────────────────────────
+   To add a student: copy one object and paste it
+   before the closing ] then fill in the fields.
+─────────────────────────────────────────────── */
+const CERTS = [
+  {"certificate_id":"CERT-R2A26030001","student_name":"Ahmed Al-Rashidi",  "course_name":"ROS2 Basics for Arm Robots","issue_date":"2026-03-15","duration_hours":40,"sessions":10,"status":"valid",  "url":"https://raw.githubusercontent.com/cyber-ai-dep/ros2-basics-certification/main/certificates/CERT-R2A26030001.pdf","student_url":"https://github.com/ahmed-rashidi"},
+  {"certificate_id":"CERT-R2A26030002","student_name":"Sara Al-Mansouri",  "course_name":"ROS2 Basics for Arm Robots","issue_date":"2026-03-15","duration_hours":40,"sessions":10,"status":"valid",  "url":"https://raw.githubusercontent.com/cyber-ai-dep/ros2-basics-certification/main/certificates/CERT-R2A26030002.pdf","student_url":"https://linkedin.com/in/sara-mansouri"},
+  {"certificate_id":"CERT-R2A26030003","student_name":"Khalid Al-Zaabi",   "course_name":"ROS2 Basics for Arm Robots","issue_date":"2026-03-16","duration_hours":40,"sessions":10,"status":"valid",  "url":"https://raw.githubusercontent.com/cyber-ai-dep/ros2-basics-certification/main/certificates/CERT-R2A26030003.pdf","student_url":"https://github.com/khalid-zaabi"},
+  {"certificate_id":"CERT-R2A26030004","student_name":"Layla Hassan",      "course_name":"ROS2 Basics for Arm Robots","issue_date":"2026-03-16","duration_hours":40,"sessions":10,"status":"valid",  "url":"https://raw.githubusercontent.com/cyber-ai-dep/ros2-basics-certification/main/certificates/CERT-R2A26030004.pdf","student_url":"https://linkedin.com/in/layla-hassan"},
+  {"certificate_id":"CERT-R2A26030005","student_name":"Omar Yusuf",        "course_name":"ROS2 Basics for Arm Robots","issue_date":"2026-03-17","duration_hours":40,"sessions":10,"status":"revoked","url":"https://raw.githubusercontent.com/cyber-ai-dep/ros2-basics-certification/main/certificates/CERT-R2A26030005.pdf","student_url":"https://github.com/omar-yusuf"},
+  {"certificate_id":"CERT-R2A26030006","student_name":"Fatima Al-Kaabi",   "course_name":"ROS2 Basics for Arm Robots","issue_date":"2026-03-17","duration_hours":40,"sessions":10,"status":"valid",  "url":"https://raw.githubusercontent.com/cyber-ai-dep/ros2-basics-certification/main/certificates/CERT-R2A26030006.pdf","student_url":"https://linkedin.com/in/fatima-kaabi"},
+  {"certificate_id":"CERT-R2A26030007","student_name":"Mohammed Al-Sayed", "course_name":"ROS2 Basics for Arm Robots","issue_date":"2026-03-18","duration_hours":40,"sessions":10,"status":"valid",  "url":"https://raw.githubusercontent.com/cyber-ai-dep/ros2-basics-certification/main/certificates/CERT-R2A26030007.pdf","student_url":"https://github.com/mohammed-sayed"},
+  {"certificate_id":"CERT-R2A26030008","student_name":"Nour Al-Amin",      "course_name":"ROS2 Basics for Arm Robots","issue_date":"2026-03-18","duration_hours":40,"sessions":10,"status":"valid",  "url":"https://raw.githubusercontent.com/cyber-ai-dep/ros2-basics-certification/main/certificates/CERT-R2A26030008.pdf","student_url":"https://linkedin.com/in/nour-alamin"}
+];
+
+/* ── ELEMENTS ── */
+const input     = document.getElementById('certInput');
+const btn       = document.getElementById('verifyBtn');
+const statusMsg = document.getElementById('statusMsg');
+const cardInner = document.getElementById('cardInner');
+const cardFront = document.getElementById('cardFront');
+const cardBack  = document.getElementById('cardBack');
+const errorCard = document.getElementById('errorCard');
+
+/* ── HELPERS ── */
+function g(id){ return document.getElementById(id); }
+function setText(id,v){ const e=g(id); if(e) e.textContent=v; }
+function setHref(id,v){ const e=g(id); if(e) e.href=v; }
+function fmtDate(iso){
+  return new Date(iso).toLocaleDateString('en-GB',
+    {day:'numeric',month:'long',year:'numeric'});
+}
+
+/* ── POPULATE BACK ── */
+function populateBack(cert){
+  setText('backId',      cert.certificate_id);
+  setText('backName',    cert.student_name);
+  setText('backDate',    fmtDate(cert.issue_date));
+  setText('backCourse',  cert.course_name);
+  setText('backHours',   cert.duration_hours);
+  setText('backSessions',cert.sessions);
+  setText('backCheck',   cert.status === 'valid' ? '\u2713' : '\u2715');
+  setHref('backStudentLink', cert.student_url || '#');
+  setText('backStudentTxt',
+    'Student Profile: ' + (cert.student_url || '—'));
+  setHref('backProfileBtn', cert.student_url || '#');
+  setHref('backPdfBtn',     cert.url);
+  const s = g('backStatus');
+  if(s){ s.textContent = cert.status; s.className = 'status-pill ' + cert.status; }
+}
+
+/* ── SHOW RESULT (flip to back) ── */
+function showResult(cert){
+  populateBack(cert);
+  errorCard.classList.remove('show');
+  document.getElementById('cardScene').classList.add('visible');
+  document.getElementById('topSection').classList.add('compact');
+  cardInner.classList.add('flipped');
+}
+
+/* ── SHOW ERROR ── */
+function showError(id){
+  document.getElementById('cardScene').classList.remove('visible');
+  document.getElementById('topSection').classList.add('compact');
+  cardInner.classList.remove('flipped');
+  setText('errorId', id || 'the provided ID');
+  errorCard.classList.add('show');
+}
+
+/* ── FLIP BACK TO FRONT ── */
+function flipBack(){
+  cardInner.classList.remove('flipped');
+}
+
+/* ── CLICKING THE BACK CARD flips back ── */
+cardBack.addEventListener('click', function(e){
+  if(e.target.closest('a,button')) return; /* don't intercept link clicks */
+  flipBack();
+});
+
+/* ── CLICKING THE FRONT CARD (when already flipped back) re-flips ──
+   Only if we already have a verified cert loaded                       */
+cardFront.addEventListener('click', function(e){
+  if(e.target.closest('a,button')) return;
+  /* only reflip if card was previously verified (backName is populated) */
+  if(g('backName').textContent !== '—' && !cardInner.classList.contains('flipped')){
+    cardInner.classList.add('flipped');
+  }
+});
+
+/* ── MAIN VERIFY ── */
+function runVerify(id){
+  const certId = (id || input.value).trim();
+  if(!certId){ return; }
+  statusMsg.textContent = '';
+  errorCard.classList.remove('show');
+  cardInner.classList.remove('flipped');
+  document.getElementById('cardScene').classList.remove('visible');
+  document.getElementById('topSection').classList.remove('compact');
+
+  const cert = CERTS.find(c =>
+    c.certificate_id.toUpperCase() === certId.toUpperCase());
+  if(cert){
+    showResult(cert);
+  } else {
+    showError(certId);
+  }
+}
+
+function tryDemo(id){ input.value = id; runVerify(id); }
+
+input.addEventListener('keydown', e => { if(e.key==='Enter') runVerify(); });
+
+/* ── INIT ── */
+window.addEventListener('DOMContentLoaded', () => {
+  const id = new URLSearchParams(window.location.search).get('id');
+  if(id){ input.value = id; runVerify(id); }
+});
+</script>
+</body>
+</html>
