@@ -1020,20 +1020,24 @@ function runVerify(id){
 input.addEventListener('keydown', function(e){ if(e.key==='Enter') runVerify(); });
 
 window.addEventListener('DOMContentLoaded', function(){
-  fetch(DATA_URL)
-    .then(function(res){
-      if(!res.ok) throw new Error('Failed to load ' + DATA_URL);
-      return res.json();
-    })
-    .then(function(data){
-      CERTS = data;
-      var id = new URLSearchParams(window.location.search).get('id');
-      if(id){ input.value = id; runVerify(id); }
-    })
-    .catch(function(err){
-      console.error('Could not load certificates data:', err);
-    });
-});
+ fetch(DATA_URL)
+  .then(function(res){
+    if(!res.ok) throw new Error('HTTP ' + res.status + ' — ' + DATA_URL);
+    return res.json();
+  })
+  .then(function(data){
+    CERTS = data;
+    console.log('Loaded', CERTS.length, 'certificates');
+    var id = new URLSearchParams(window.location.search).get('certificate_id');
+    if(id){ input.value = id; runVerify(id); }
+  })
+  .catch(function(err){
+    // Show the error visibly on screen
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div style="background:red;color:#fff;padding:12px;font-family:monospace;position:fixed;top:0;left:0;right:0;z-index:9999;">'
+      + 'FETCH ERROR: ' + err.message + '</div>');
+    console.error(err);
+  });
 </script>
 </body>
 </html>
