@@ -193,11 +193,12 @@ body::before{
   letter-spacing:.1em;color:#ffffff;line-height:1;white-space:nowrap;
 }
 
+/* ── VERIFIED BAND (shared by front + back) ── */
 .cert-band{
   background:linear-gradient(135deg,#070b0c 0%,#0f1517 100%);
   border:1px solid rgba(40,127,132,.28);
   color:#fff;text-align:center;padding:13px 20px;border-radius:4px;
-  margin:18px 0 0;position:relative;overflow:hidden;
+  position:relative;overflow:hidden;
 }
 .cert-band::before{
   content:'';position:absolute;inset:0;
@@ -211,20 +212,70 @@ body::before{
   letter-spacing:.32em;position:relative;
 }
 .cert-label .c{color:var(--pg-acc2);text-shadow:0 0 22px rgba(40,127,132,.9);}
-.c-nodes{
-  position:absolute;top:50%;transform:translateY(-50%);
-  display:flex;align-items:center;gap:5px;
+
+/* Front header: default state (before verify) */
+.front-header-default{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;
+  transition:opacity .4s, max-height .4s;
+  overflow:hidden;
+  max-height:60px;
 }
-.c-nodes.l{left:14px;}
-.c-nodes.r{right:14px;}
-.cn{
-  width:7px;height:7px;border-radius:50%;
-  background:var(--pg-acc2);
-  animation:cnPulse 2s ease-in-out infinite;
+/* Front header: verified band (hidden by default, shown after verify) */
+.front-header-verified{
+  display:none;
+  margin-bottom:10px;
 }
-.cn:last-child{animation-delay:.4s;}
-.ct{width:28px;height:2px;background:var(--pg-acc2);opacity:.6;}
-@keyframes cnPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.3;transform:scale(.6);}}
+/* When card is in "verified" mode */
+.card-scene.verified .front-header-default{
+  opacity:0;
+  max-height:0;
+  margin-bottom:0;
+  pointer-events:none;
+}
+.card-scene.verified .front-header-verified{
+  display:block;
+  animation:fadeU .5s ease both;
+}
+
+/* Tap button on front card */
+.front-tap-btn{
+  display:none;
+  width:100%;
+  margin-top:14px;
+  padding:14px 0;
+  border-radius:6px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.82rem;letter-spacing:.18em;text-transform:uppercase;
+  background:transparent;
+  border:2px solid var(--pg-acc);
+  color:var(--pg-acc2);
+  cursor:pointer;
+  position:relative;overflow:hidden;
+  transition:color .25s, box-shadow .25s;
+  animation:tapPulse 2.2s ease-in-out infinite;
+  z-index:10;
+}
+.front-tap-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(58,171,177,.12),transparent);
+  transform:translateX(-100%);
+  animation:tapScan 2.2s ease-in-out infinite;
+}
+.front-tap-btn:hover{
+  color:#fff;
+  box-shadow:0 0 24px rgba(40,127,132,.5);
+  border-color:var(--pg-acc2);
+}
+.card-scene.verified .front-tap-btn{ display:block; }
+@keyframes tapPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(40,127,132,0);}
+  50%{box-shadow:0 0 0 6px rgba(40,127,132,.2);}
+}
+@keyframes tapScan{
+  0%{transform:translateX(-100%);}
+  100%{transform:translateX(200%);}
+}
 
 .cert-div{display:flex;align-items:center;gap:10px;margin:16px 0;}
 .cert-div::before,.cert-div::after{
@@ -328,7 +379,7 @@ body::before{
 .btn-fill:hover{background:var(--pg-acc2);color:#080c0d;box-shadow:0 6px 22px rgba(40,127,132,.4);}
 .btn-fill span{position:relative;z-index:2;}
 
-.face-front{position:relative;overflow:hidden;}
+.face-front{position:relative;overflow:hidden;cursor:pointer;}
 
 .status-pill{
   font-family:'Share Tech Mono',monospace;font-size:.62rem;
@@ -338,13 +389,6 @@ body::before{
 .status-pill.valid{background:rgba(29,158,117,.15);color:#5DCAA5;border:1px solid rgba(29,158,117,.35);}
 .status-pill.revoked{background:rgba(216,90,48,.15);color:#F0997B;border:1px solid rgba(216,90,48,.35);}
 
-.cert-mono{
-  font-family:'Share Tech Mono',monospace;font-size:.65rem;
-  letter-spacing:.1em;color:var(--pg-acc2);
-  background:rgba(40,127,132,.1);
-  border:1px solid rgba(40,127,132,.28);
-  border-radius:4px;padding:3px 9px;display:inline-block;
-}
 .back-top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
 
 .error-card{
@@ -469,12 +513,13 @@ body::before{
     <div class="card-scene" id="cardScene">
       <div class="card-inner" id="cardInner">
 
-        <!-- FRONT -->
+        <!-- ════════════════════════════════════════ FRONT ════════════════════════════════════════ -->
         <div class="face face-front" id="cardFront">
 
           <canvas id="frontCanvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:8px;pointer-events:none;opacity:.45;"></canvas>
 
-          <div style="position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <!-- ── DEFAULT HEADER (visible before verification) ── -->
+          <div class="front-header-default" style="position:relative;z-index:2;">
             <div style="display:flex;align-items:center;gap:8px;">
               <svg class="gear" viewBox="0 0 50 50" fill="none" style="width:32px;height:32px;">
                 <rect x="22" y="2"  width="6" height="9" rx="2" fill="#287f84"/>
@@ -514,6 +559,24 @@ body::before{
                 <circle cx="25" cy="25" r="5"  fill="none" stroke="#287f84" stroke-width="1"/>
                 <circle cx="25" cy="25" r="2.5" fill="#3aabb1"/>
               </svg>
+            </div>
+          </div>
+
+          <!-- ── VERIFIED HEADER (replaces default after successful verification) ── -->
+          <div class="front-header-verified" style="position:relative;z-index:2;">
+            <div class="cert-band" style="margin-bottom:0;">
+              <div class="vband-scan"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;position:relative;">
+                <svg viewBox="0 0 18 20" style="width:18px;height:20px;flex-shrink:0;">
+                  <path d="M9 1 L17 4.5 L17 10 Q17 16 9 19 Q1 16 1 10 L1 4.5 Z" fill="none" stroke="#287f84" stroke-width="1.4"/>
+                  <path d="M6 10 L8 12 L12 8" fill="none" stroke="#3aabb1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="vcheck-tick"/>
+                </svg>
+                <p class="cert-label" style="margin:0;"><span class="c">VERIFIED</span></p>
+                <svg viewBox="0 0 18 20" style="width:18px;height:20px;flex-shrink:0;">
+                  <path d="M9 1 L17 4.5 L17 10 Q17 16 9 19 Q1 16 1 10 L1 4.5 Z" fill="none" stroke="#287f84" stroke-width="1.4"/>
+                  <path d="M6 10 L8 12 L12 8" fill="none" stroke="#3aabb1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="vcheck-tick"/>
+                </svg>
+              </div>
             </div>
           </div>
 
@@ -617,10 +680,7 @@ body::before{
             </div>
           </div>
 
-          <!-- ═══════════════════════════════════════════════════════════
-               ROS2 ARCHITECTURE DIAGRAM — full teal/cyan palette only
-               No yellow, no purple. Shadows & borders use #287f84/#3aabb1
-          ════════════════════════════════════════════════════════════ -->
+          <!-- ROS2 ARCHITECTURE DIAGRAM -->
           <div style="position:relative;z-index:2;margin:10px 0 14px;">
             <svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
               <defs>
@@ -641,8 +701,6 @@ body::before{
                   <stop offset="100%" stop-color="#061518"/>
                 </radialGradient>
               </defs>
-
-              <!-- NODE A -->
               <circle cx="100" cy="80" r="72" fill="url(#archNodeGradA)" stroke="#287f84" stroke-width="1.8" filter="url(#archGlow)"/>
               <circle cx="100" cy="80" r="72" fill="none" stroke="#3aabb1" stroke-width="0.6" opacity=".4">
                 <animate attributeName="r" values="66;72;66" dur="3s" repeatCount="indefinite"/>
@@ -650,26 +708,17 @@ body::before{
               </circle>
               <text x="100" y="38" text-anchor="middle" font-family="'Orbitron',monospace" font-size="12" font-weight="700" fill="#3aabb1" letter-spacing="3">NODE</text>
               <line x1="55" y1="48" x2="145" y2="48" stroke="#287f84" stroke-width="0.8" opacity=".5"/>
-              <!-- Service Client pill — teal dark bg, #287f84 border -->
               <rect x="34" y="56" width="132" height="22" rx="11" fill="#082426" stroke="#287f84" stroke-width="1"/>
               <text x="100" y="71" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="10" fill="#3aabb1">Service Client</text>
-              <!-- Subscriber pill — slightly lighter teal -->
               <rect x="34" y="86" width="132" height="22" rx="11" fill="#061c1f" stroke="#3aabb1" stroke-width="0.8"/>
               <text x="100" y="101" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="10" fill="#7acfd5">Subscriber</text>
-
-              <!-- SERVICE box — top centre -->
               <rect x="210" y="10" width="140" height="58" rx="8" fill="#061518" stroke="#287f84" stroke-width="1.6" filter="url(#archSoftGlow)"/>
               <text x="280" y="32" text-anchor="middle" font-family="'Orbitron',monospace" font-size="11" font-weight="700" fill="#3aabb1" letter-spacing="2">SERVICE</text>
-              <!-- Request/Response pill — deeper teal, no purple -->
               <rect x="222" y="40" width="116" height="18" rx="6" fill="#0a2428" stroke="#287f84" stroke-width="0.8"/>
               <text x="280" y="53" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="9" fill="#5fb8be">Request  /  Response</text>
-
-              <!-- TOPIC box — bottom centre -->
               <rect x="210" y="92" width="140" height="52" rx="8" fill="#061518" stroke="#3aabb1" stroke-width="1.6" filter="url(#archSoftGlow)"/>
               <text x="280" y="120" text-anchor="middle" font-family="'Orbitron',monospace" font-size="11" font-weight="700" fill="#3aabb1" letter-spacing="2">TOPIC</text>
               <line x1="212" y1="132" x2="348" y2="132" stroke="#3aabb1" stroke-width="0.5" opacity=".25"/>
-
-              <!-- NODE B -->
               <circle cx="460" cy="80" r="72" fill="url(#archNodeGradB)" stroke="#287f84" stroke-width="1.8" filter="url(#archGlow)"/>
               <circle cx="460" cy="80" r="72" fill="none" stroke="#3aabb1" stroke-width="0.6" opacity=".4">
                 <animate attributeName="r" values="66;72;66" dur="3s" begin="1.5s" repeatCount="indefinite"/>
@@ -677,58 +726,40 @@ body::before{
               </circle>
               <text x="460" y="38" text-anchor="middle" font-family="'Orbitron',monospace" font-size="12" font-weight="700" fill="#3aabb1" letter-spacing="3">NODE</text>
               <line x1="415" y1="48" x2="505" y2="48" stroke="#287f84" stroke-width="0.8" opacity=".5"/>
-              <!-- Service Server pill -->
               <rect x="394" y="56" width="132" height="22" rx="11" fill="#082426" stroke="#287f84" stroke-width="1"/>
               <text x="460" y="71" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="10" fill="#3aabb1">Service Server</text>
-              <!-- Publisher pill -->
               <rect x="394" y="86" width="132" height="22" rx="11" fill="#061c1f" stroke="#3aabb1" stroke-width="0.8"/>
               <text x="460" y="101" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="10" fill="#7acfd5">Publisher</text>
-
-              <!-- EDGES — all teal/cyan, no yellow/purple -->
-              <!-- Node A Service Client → SERVICE -->
               <path d="M165 67 Q188 38 208 32" fill="none" stroke="#287f84" stroke-width="1.4" stroke-dasharray="6 4" opacity=".8"/>
-              <!-- SERVICE → Node B Service Server -->
               <path d="M350 32 Q372 38 393 67" fill="none" stroke="#287f84" stroke-width="1.4" stroke-dasharray="6 4" opacity=".8"/>
-              <!-- Node B Publisher → TOPIC -->
               <path d="M394 100 Q370 108 350 110" fill="none" stroke="#3aabb1" stroke-width="1.6" opacity=".8"/>
-              <!-- TOPIC → Node A Subscriber -->
               <path d="M210 110 Q188 108 165 100" fill="none" stroke="#287f84" stroke-width="1.6" opacity=".8"/>
-
-              <!-- ANIMATED PACKETS — all teal/cyan -->
-              <!-- service request: Node A → Service (teal) -->
               <circle r="5" fill="#287f84" filter="url(#archSoftGlow)" opacity=".95">
-                <animateMotion dur="1.8s" repeatCount="indefinite" begin="0s"
-                  path="M165 67 Q188 38 208 32"/>
+                <animateMotion dur="1.8s" repeatCount="indefinite" begin="0s" path="M165 67 Q188 38 208 32"/>
               </circle>
-              <!-- service response: Service → Node B (cyan) -->
               <circle r="5" fill="#3aabb1" filter="url(#archSoftGlow)" opacity=".95">
-                <animateMotion dur="1.8s" repeatCount="indefinite" begin="0.9s"
-                  path="M350 32 Q372 38 393 67"/>
+                <animateMotion dur="1.8s" repeatCount="indefinite" begin="0.9s" path="M350 32 Q372 38 393 67"/>
               </circle>
-              <!-- publish: Node B → Topic (bright cyan) -->
               <circle r="5" fill="#3aabb1" filter="url(#archGlow)" opacity=".95">
-                <animateMotion dur="1.4s" repeatCount="indefinite" begin="0.3s"
-                  path="M394 100 Q370 108 350 110"/>
+                <animateMotion dur="1.4s" repeatCount="indefinite" begin="0.3s" path="M394 100 Q370 108 350 110"/>
               </circle>
-              <!-- subscribe: Topic → Node A (teal) -->
               <circle r="5" fill="#287f84" filter="url(#archSoftGlow)" opacity=".95">
-                <animateMotion dur="1.4s" repeatCount="indefinite" begin="1.0s"
-                  path="M210 110 Q188 108 165 100"/>
+                <animateMotion dur="1.4s" repeatCount="indefinite" begin="1.0s" path="M210 110 Q188 108 165 100"/>
               </circle>
             </svg>
           </div>
 
           <div class="card-footer" style="position:relative;z-index:2;">
             <div class="footer-line"></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <p class="issued-by" style="margin:0;">Issued by <span>Robotics Training Program</span></p>
-              <span style="font-family:'Share Tech Mono',monospace;font-size:.55rem;letter-spacing:.12em;color:#287f84;opacity:.7;">FLIP TO VIEW ▶</span>
-            </div>
+            <p class="issued-by">Issued by <span>Robotics Training Program</span></p>
+            <button class="front-tap-btn" id="frontTapBtn" onclick="flipToBack()">
+              ▶ &nbsp; TAP TO VIEW YOUR INFO &nbsp; ◀
+            </button>
           </div>
 
         </div><!-- /front -->
 
-        <!-- BACK -->
+        <!-- ════════════════════════════════════════ BACK ════════════════════════════════════════ -->
         <div class="face face-back" id="cardBack">
           <div class="gear-header">
             <svg class="gear" viewBox="0 0 50 50" fill="none">
@@ -934,7 +965,7 @@ body::before{
 })();
 
 /* ── DATA ── */
-const DATA_URL = 'certificates.json'; // path to the JSON file (same folder as this HTML)
+const DATA_URL = 'certificates.json';
 let CERTS = [];
 
 /* ── ELEMENTS ── */
@@ -945,6 +976,7 @@ const cardInner = document.getElementById('cardInner');
 const cardFront = document.getElementById('cardFront');
 const cardBack  = document.getElementById('cardBack');
 const errorCard = document.getElementById('errorCard');
+const cardScene = document.getElementById('cardScene');
 
 function g(id){ return document.getElementById(id); }
 function setText(id,v){ var e=g(id); if(e) e.textContent=v; }
@@ -954,14 +986,16 @@ function fmtDate(iso){
     {day:'numeric',month:'long',year:'numeric'});
 }
 
+function flipToBack(){
+  cardInner.classList.add('flipped');
+}
+
 function populateBack(cert){
-  setText('backId',       cert.certificate_id);
   setText('backName',     cert.student_name);
   setText('backDate',     fmtDate(cert.issue_date));
   setText('backCourse',   cert.course_name);
   setText('backHours',    cert.duration_hours);
   setText('backSessions', cert.sessions);
-  setText('backCheck',    cert.status === 'valid' ? '\u2713' : '\u2715');
   setHref('backStudentLink', cert.student_url || '#');
   setText('backStudentTxt', 'Company LinkedIn Profile: ' + (cert.student_url || '\u2014'));
   setHref('backProfileBtn', cert.student_url || '#');
@@ -973,33 +1007,25 @@ function populateBack(cert){
 function showResult(cert){
   populateBack(cert);
   errorCard.classList.remove('show');
-  g('cardScene').classList.add('visible');
+  cardScene.classList.add('visible');
+  cardScene.classList.add('verified');
+  cardInner.classList.remove('flipped');
   g('topSection').classList.add('compact');
-  cardInner.classList.add('flipped');
 }
 
 function showError(id){
-  g('cardScene').classList.remove('visible');
+  cardScene.classList.remove('visible');
+  cardScene.classList.remove('verified');
   g('topSection').classList.add('compact');
   cardInner.classList.remove('flipped');
   setText('errorId', id || 'the provided ID');
   errorCard.classList.add('show');
 }
 
-function flipBack(){ cardInner.classList.remove('flipped'); }
-
+// Click BACK → flip back to front
 cardBack.addEventListener('click', function(e){
   if(e.target.closest('a,button')) return;
-  flipBack();
-});
-
-cardFront.addEventListener('click', function(e){
-  if(e.target.closest('a,button')) return;
-  if(g('backName').textContent !== '\u2014' &&
-     g('backName').textContent !== '—' &&
-     !cardInner.classList.contains('flipped')){
-    cardInner.classList.add('flipped');
-  }
+  cardInner.classList.remove('flipped');
 });
 
 function runVerify(id){
@@ -1007,7 +1033,8 @@ function runVerify(id){
   if(!certId){ return; }
   errorCard.classList.remove('show');
   cardInner.classList.remove('flipped');
-  g('cardScene').classList.remove('visible');
+  cardScene.classList.remove('visible');
+  cardScene.classList.remove('verified');
   g('topSection').classList.remove('compact');
 
   var cert = CERTS.find(function(c){
@@ -1020,25 +1047,24 @@ function runVerify(id){
 input.addEventListener('keydown', function(e){ if(e.key==='Enter') runVerify(); });
 
 window.addEventListener('DOMContentLoaded', function(){
- fetch(DATA_URL)
-  .then(function(res){
-    if(!res.ok) throw new Error('HTTP ' + res.status + ' — ' + DATA_URL);
-    return res.json();
-  })
-  .then(function(data){
-    CERTS = data;
-    console.log('Loaded', CERTS.length, 'certificates');
-    var id = new URLSearchParams(window.location.search).get('certificate_id');
-    if(id){ input.value = id; runVerify(id); }
-  })
-  .catch(function(err){
-    // Show the error visibly on screen
-    document.body.insertAdjacentHTML('afterbegin',
-      '<div style="background:red;color:#fff;padding:12px;font-family:monospace;position:fixed;top:0;left:0;right:0;z-index:9999;">'
-      + 'FETCH ERROR: ' + err.message + '</div>');
-    console.error(err);
-      });
+  fetch(DATA_URL)
+    .then(function(res){
+      if(!res.ok) throw new Error('HTTP ' + res.status + ' — ' + DATA_URL);
+      return res.json();
+    })
+    .then(function(data){
+      CERTS = data;
+      console.log('Loaded', CERTS.length, 'certificates');
+      var id = new URLSearchParams(window.location.search).get('certificate_id');
+      if(id){ input.value = id; runVerify(id); }
+    })
+    .catch(function(err){
+      document.body.insertAdjacentHTML('afterbegin',
+        '<div style="background:red;color:#fff;padding:12px;font-family:monospace;position:fixed;top:0;left:0;right:0;z-index:9999;">'
+        + 'FETCH ERROR: ' + err.message + '</div>');
+      console.error(err);
+    });
 });
 </script>
 </body>
-</html> 
+</html>
