@@ -23,12 +23,6 @@ ROS 2 JAZZY is a hands-on robotics course focused on the Robot Operating System 
 - general link for Digital certificate : https://cyberai-department.github.io/ros2-basics-certification/index.html
 
 
-## Repository Structure
-
-Each student has:
-- Digital Certificate Link
-- PDF Certificate
-
 ________________________________________________________
 ##  Outstanding Students
 
