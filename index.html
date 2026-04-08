@@ -158,33 +158,73 @@ body::before{
 
 .card-scene{
   width:min(1020px,96vw);
-  perspective:1400px;
+  /* No perspective on the scene — we apply it to card-inner only */
   display:none;
 }
 .card-scene.visible{display:block;animation:fadeU .5s ease both;}
 
+/*
+ * CROSS-PLATFORM FLIP FIX:
+ * iOS Safari / WebKit does not correctly honour backface-visibility
+ * when faces are stacked via CSS Grid (grid-row:1/grid-column:1).
+ * Solution: use position:relative on the wrapper + position:absolute
+ * on both faces. The wrapper height is driven by whichever face is taller.
+ * We force both faces to be the same width; height is auto on each face
+ * but the wrapper collapses — so we set min-height via JS after render,
+ * OR we let the front (always rendered) set the height and the back sits
+ * absolute on top. Simplest robust approach: make wrapper position:relative,
+ * front is in normal flow (sets height), back is absolute inset:0.
+ */
 .card-inner{
-  display:grid;
-  grid-template-columns:1fr;
-  transform-style:preserve-3d;
-  transition:transform .8s cubic-bezier(.4,0,.2,1);
+  position:relative;
+  /* perspective lives here so transform-style works correctly in WebKit */
+  perspective:1400px;
+  transform-style:flat; /* flat on the wrapper; preserve-3d on each face individually */
 }
-.card-inner.flipped{transform:rotateY(180deg);}
 
 .face{
-  grid-row:1;grid-column:1;
   width:100%;
   border-radius:8px;
-  backface-visibility:hidden;
-  -webkit-backface-visibility:hidden;
   background:var(--card-bg);
   border:1.5px solid var(--card-bdr);
   box-shadow:0 0 0 10px rgba(40,127,132,.06),0 20px 60px rgba(0,0,0,.8);
   outline:1.5px solid rgba(40,127,132,.25);
   outline-offset:8px;
   padding:28px 80px 26px;
+  /* Each face handles its own 3-D transform */
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  transition:transform .8s cubic-bezier(.4,0,.2,1), visibility 0s linear .0s;
 }
-.face-back{transform:rotateY(180deg);}
+
+/* Front: visible by default, rotates away on flip */
+.face-front{
+  position:relative; /* stays in normal flow → sets wrapper height */
+  transform:rotateY(0deg);
+  visibility:visible;
+}
+
+/* Back: sits on top of front, pre-rotated so it's hidden */
+.face-back{
+  position:absolute;
+  top:0;left:0;right:0;
+  /* min-height matches the front dynamically via JS */
+  transform:rotateY(180deg);
+  visibility:hidden;
+  transition:transform .8s cubic-bezier(.4,0,.2,1), visibility 0s linear .8s;
+}
+
+/* FLIPPED state */
+.card-inner.flipped .face-front{
+  transform:rotateY(-180deg);
+  visibility:hidden;
+  transition:transform .8s cubic-bezier(.4,0,.2,1), visibility 0s linear .8s;
+}
+.card-inner.flipped .face-back{
+  transform:rotateY(0deg);
+  visibility:visible;
+  transition:transform .8s cubic-bezier(.4,0,.2,1), visibility 0s linear .0s;
+}
 
 .gear-header{
   display:flex;align-items:center;justify-content:center;
@@ -905,7 +945,7 @@ body::before{
                  href="#"
                  target="_blank"
                  rel="noopener noreferrer"
-                 onclick="handleBtnClick(event, 'backProfileBtn')">
+                 onclick="event.preventDefault(); openUrl(_profileUrl);">
                 <div class="scan"></div>
                 <span>&#128100; Student Profile &#8599;</span>
               </a>
@@ -916,7 +956,7 @@ body::before{
                  href="#"
                  target="_blank"
                  rel="noopener noreferrer"
-                 onclick="handleBtnClick(event, 'backPdfBtn')">
+                 onclick="event.preventDefault(); openUrl(_pdfUrl);">
                 <div class="scan"></div>
                 <span>&#10003; View Certificate PDF</span>
               </a>
@@ -1022,8 +1062,6 @@ let CERTS = [];
 
 /* ── ELEMENTS ── */
 const input     = document.getElementById('certInput');
-const btn       = document.getElementById('verifyBtn');
-const statusMsg = document.getElementById('statusMsg');
 const cardInner = document.getElementById('cardInner');
 const cardFront = document.getElementById('cardFront');
 const cardBack  = document.getElementById('cardBack');
@@ -1033,42 +1071,27 @@ const cardScene = document.getElementById('cardScene');
 function g(id){ return document.getElementById(id); }
 function setText(id,v){ var e=g(id); if(e) e.textContent=v; }
 
-/**
- * setLink — sets href on an <a> element.
- * On iOS Safari, target="_blank" can be blocked for programmatic href changes
- * unless the link already has a valid href at click time.
- * We set the href directly on the element so the browser sees it before any tap.
+/*
+ * syncBackHeight — makes the absolute-positioned back face the same
+ * height as the front face so the card-inner wrapper is tall enough.
+ * Called after the card becomes visible.
  */
-function setLink(id, url){
-  var e = g(id);
-  if(!e) return;
-  // Fallback: if url is empty or null, disable the link gracefully
-  if(url && url !== '#'){
-    e.href = url;
-    e.removeAttribute('aria-disabled');
-    e.style.opacity = '1';
-    e.style.pointerEvents = 'auto';
-  } else {
-    e.href = '#';
-    e.setAttribute('aria-disabled', 'true');
-    e.style.opacity = '0.45';
-    e.style.pointerEvents = 'none';
-  }
+function syncBackHeight(){
+  var frontH = cardFront.offsetHeight;
+  cardBack.style.minHeight = frontH + 'px';
+  cardInner.style.minHeight = frontH + 'px';
 }
 
-/**
- * handleBtnClick — called on click for both action buttons.
- * Prevents default on iOS if href is still '#' (not yet set),
- * otherwise lets the native link navigation happen.
+/*
+ * openUrl — the ONLY function used for button navigation.
+ * Using window.open in an onclick handler (triggered by real user gesture)
+ * works on ALL platforms: desktop Chrome/Firefox/Safari, iOS Safari,
+ * Android Chrome. It is NOT blocked as a popup because it's synchronous
+ * inside a click event.
  */
-function handleBtnClick(event, btnId){
-  var el = g(btnId);
-  if(!el) return;
-  if(!el.href || el.href === '#' || el.href === window.location.href + '#'){
-    event.preventDefault();
-    return;
-  }
-  // Let native <a> navigation handle it — works on all platforms
+function openUrl(url){
+  if(!url || url === '#') return;
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function fmtDate(iso){
@@ -1080,6 +1103,10 @@ function flipToBack(){
   cardInner.classList.add('flipped');
 }
 
+/* Store cert URLs so onclick handlers can read them */
+var _profileUrl = '';
+var _pdfUrl     = '';
+
 function populateBack(cert){
   setText('backName',     cert.student_name);
   setText('backDate',     fmtDate(cert.issue_date));
@@ -1087,13 +1114,20 @@ function populateBack(cert){
   setText('backHours',    cert.duration_hours);
   setText('backSessions', cert.sessions);
 
-  // Profile button → student_url from JSON
-  setLink('backProfileBtn', cert.student_url || '');
+  /* Store URLs for use by onclick handlers */
+  _profileUrl = cert.student_url || '';
+  _pdfUrl     = cert.url         || '';
 
-  // PDF button → url from JSON
-  setLink('backPdfBtn', cert.url || '');
+  /* Also set href for right-click / copy-link on desktop */
+  var pBtn = g('backProfileBtn');
+  var dBtn = g('backPdfBtn');
+  if(pBtn){ pBtn.href = _profileUrl || '#'; }
+  if(dBtn){ dBtn.href = _pdfUrl     || '#'; }
 
-  // Status pill (optional element)
+  /* Dim buttons if URL is missing */
+  if(pBtn){ pBtn.style.opacity = _profileUrl ? '1' : '0.45'; }
+  if(dBtn){ dBtn.style.opacity = _pdfUrl     ? '1' : '0.45'; }
+
   var s = g('backStatus');
   if(s){ s.textContent = cert.status; s.className = 'status-pill ' + cert.status; }
 }
@@ -1105,6 +1139,8 @@ function showResult(cert){
   cardScene.classList.add('verified');
   cardInner.classList.remove('flipped');
   g('topSection').classList.add('compact');
+  /* Let the DOM paint, then sync heights */
+  requestAnimationFrame(function(){ syncBackHeight(); });
 }
 
 function showError(id){
@@ -1116,10 +1152,15 @@ function showError(id){
   errorCard.classList.add('show');
 }
 
-// Click BACK face body → flip back to front
+/* Clicking the back face body (not a button/link) flips back to front */
 cardBack.addEventListener('click', function(e){
   if(e.target.closest('a,button')) return;
   cardInner.classList.remove('flipped');
+});
+
+/* Re-sync height on resize (orientation change on mobile) */
+window.addEventListener('resize', function(){
+  if(cardScene.classList.contains('visible')) syncBackHeight();
 });
 
 function runVerify(id){
