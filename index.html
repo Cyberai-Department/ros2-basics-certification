@@ -131,7 +131,10 @@ body::before{
   flex:1;background:transparent;border:none;outline:none;
   font-family:'Share Tech Mono',monospace;font-size:.88rem;
   color:var(--pg-txt);letter-spacing:.06em;
+  /* Prevent iOS zoom on focus */
+  font-size:16px;
 }
+@media(min-width:400px){#certInput{font-size:.88rem;}}
 #certInput::placeholder{color:var(--pg-muted);}
 #verifyBtn{
   background:var(--pg-acc);color:#fff;border:none;
@@ -141,6 +144,9 @@ body::before{
   text-transform:uppercase;cursor:pointer;
   transition:background .2s,transform .15s,box-shadow .2s;
   white-space:nowrap;
+  /* Touch-friendly minimum tap target */
+  min-height:44px;
+  -webkit-tap-highlight-color:transparent;
 }
 #verifyBtn:hover{
   background:var(--pg-acc2);color:#080c0d;
@@ -255,6 +261,9 @@ body::before{
   transition:color .25s, box-shadow .25s;
   animation:tapPulse 2.2s ease-in-out infinite;
   z-index:10;
+  /* Touch friendly */
+  min-height:48px;
+  -webkit-tap-highlight-color:transparent;
 }
 .front-tap-btn::before{
   content:'';position:absolute;inset:0;
@@ -325,6 +334,9 @@ body::before{
   display:flex;align-items:flex-start;gap:7px;
   margin-bottom:5px;text-decoration:none;
   word-break:break-all;transition:color .2s;line-height:1.4;
+  /* Touch friendly */
+  padding:4px 0;
+  -webkit-tap-highlight-color:transparent;
 }
 .verify-link:hover{color:#ffffff;}
 .vdot{width:6px;height:6px;border-radius:50%;background:var(--pg-acc);flex-shrink:0;margin-top:3px;}
@@ -341,42 +353,50 @@ body::before{
 }
 .issued-by span{color:var(--pg-acc);}
 
+/* ── BUTTON ROW — both buttons are now identical fill style ── */
 .btn-row{display:flex;gap:12px;margin-top:14px;}
-.btn-outline{
-  flex:1;padding:10px 0;border-radius:4px;
-  font-family:'Share Tech Mono',monospace;font-size:.72rem;
-  letter-spacing:.12em;text-transform:uppercase;
-  text-decoration:none;text-align:center;display:inline-block;
-  border:2px solid var(--pg-acc);color:var(--pg-acc2);
-  background:transparent;cursor:pointer;
-  position:relative;overflow:hidden;
-  transition:color .28s,box-shadow .28s;
-}
-.btn-outline::after{
-  content:'';position:absolute;inset:0;background:var(--pg-acc);
-  transform:scaleX(0);transform-origin:left;
-  transition:transform .3s ease;z-index:0;
-}
-.btn-outline:hover::after{transform:scaleX(1);}
-.btn-outline:hover{color:#fff;box-shadow:0 5px 18px rgba(40,127,132,.35);}
-.btn-outline span{position:relative;z-index:1;}
 
 .btn-fill{
-  flex:1.6;padding:10px 0;border-radius:4px;
-  font-family:'Share Tech Mono',monospace;font-size:.72rem;
-  letter-spacing:.12em;text-transform:uppercase;
-  text-decoration:none;text-align:center;display:inline-block;
-  border:none;background:var(--pg-acc);color:#fff;cursor:pointer;
-  position:relative;overflow:hidden;transition:box-shadow .25s;
+  flex:1;
+  padding:14px 0;
+  border-radius:6px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.75rem;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  text-decoration:none;
+  text-align:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  border:none;
+  background:var(--pg-acc);
+  color:#fff;
+  cursor:pointer;
+  position:relative;
+  overflow:hidden;
+  transition:background .25s, box-shadow .25s, transform .15s;
+  /* Touch friendly */
+  min-height:48px;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  -webkit-user-select:none;
 }
-.scan{
+.btn-fill .scan{
   position:absolute;left:0;top:-100%;width:100%;height:100%;
   background:linear-gradient(180deg,transparent 40%,rgba(58,171,177,.38) 50%,transparent 60%);
   pointer-events:none;z-index:1;
 }
 .btn-fill:hover .scan{animation:scanAnim .55s ease;}
 @keyframes scanAnim{from{top:-100%}to{top:100%}}
-.btn-fill:hover{background:var(--pg-acc2);color:#080c0d;box-shadow:0 6px 22px rgba(40,127,132,.4);}
+.btn-fill:hover{
+  background:var(--pg-acc2);
+  color:#080c0d;
+  box-shadow:0 6px 22px rgba(40,127,132,.4);
+  transform:translateY(-1px);
+}
+.btn-fill:active{transform:none;}
 .btn-fill span{position:relative;z-index:2;}
 
 .face-front{position:relative;overflow:hidden;cursor:pointer;}
@@ -414,10 +434,12 @@ body::before{
 .pg-footer a:hover{color:#ffffff;}
 
 @media(max-width:560px){
-  .face{padding:28px 20px 24px;}
+  .face{padding:28px 14px 24px;}
   .info-grid{grid-template-columns:1fr;}
   .stat-row{flex-wrap:wrap;}
   .btn-row{flex-direction:column;}
+  .btn-fill{padding:16px 0;}
+  .card-title{font-size:18px;}
 }
 
 .vband-scan{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:4px;}
@@ -500,7 +522,8 @@ body::before{
     <div class="search-wrap">
       <div class="input-row">
         <input id="certInput" type="text" placeholder="CERT-R2A26030001"
-          autocomplete="off" spellcheck="false" aria-label="Certificate ID"/>
+          autocomplete="off" spellcheck="false" aria-label="Certificate ID"
+          inputmode="text" autocorrect="off" autocapitalize="characters"/>
         <button id="verifyBtn" onclick="runVerify()">Verify</button>
       </div>
     </div>
@@ -846,13 +869,24 @@ body::before{
             </div>
           </div>
 
+          <!-- ── VERIFICATION DETAILS BOX ── -->
           <div class="verify-box">
             <p class="verify-lbl">&#9658; Verification Details</p>
-            <a class="verify-link" id="backStudentLink" href="#" target="_blank" rel="noopener">
+
+            <!-- Fixed company LinkedIn link — always the same -->
+            <a class="verify-link"
+               href="https://www.linkedin.com/company/cyber-robot/"
+               target="_blank"
+               rel="noopener noreferrer">
               <span class="vdot"></span>
-              <span id="backStudentTxt">Company LinkedIn Profile: —</span>
+              <span>Company LinkedIn: linkedin.com/company/cyber-robot</span>
             </a>
-            <a class="verify-link" href="https://github.com/cyber-ai-dep/ros2-JAZZY-certification" target="_blank" rel="noopener">
+
+            <!-- Course repo link — always the same -->
+            <a class="verify-link"
+               href="https://github.com/cyber-ai-dep/ros2-JAZZY-certification"
+               target="_blank"
+               rel="noopener noreferrer">
               <span class="vdot"></span>
               Course Repo: github.com/cyber-ai-dep/ros2-JAZZY-certification
             </a>
@@ -861,14 +895,32 @@ body::before{
           <div class="card-footer">
             <div class="footer-line"></div>
             <p class="issued-by">Issued by <span>Robotics Training Program</span></p>
+
+            <!-- ── BOTH BUTTONS: same fill style, each links to its correct JSON URL ── -->
             <div class="btn-row">
-              <a class="btn-outline" id="backProfileBtn" href="#" target="_blank" rel="noopener">
-                <span>Profile &#8599;</span>
+
+              <!-- Profile button → student_url from JSON -->
+              <a class="btn-fill"
+                 id="backProfileBtn"
+                 href="#"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 onclick="handleBtnClick(event, 'backProfileBtn')">
+                <div class="scan"></div>
+                <span>&#128100; Student Profile &#8599;</span>
               </a>
-              <a class="btn-fill" id="backPdfBtn" href="#" target="_blank" rel="noopener">
+
+              <!-- View Certificate PDF button → url from JSON -->
+              <a class="btn-fill"
+                 id="backPdfBtn"
+                 href="#"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 onclick="handleBtnClick(event, 'backPdfBtn')">
                 <div class="scan"></div>
                 <span>&#10003; View Certificate PDF</span>
               </a>
+
             </div>
           </div>
 
@@ -980,7 +1032,45 @@ const cardScene = document.getElementById('cardScene');
 
 function g(id){ return document.getElementById(id); }
 function setText(id,v){ var e=g(id); if(e) e.textContent=v; }
-function setHref(id,v){ var e=g(id); if(e) e.href=v; }
+
+/**
+ * setLink — sets href on an <a> element.
+ * On iOS Safari, target="_blank" can be blocked for programmatic href changes
+ * unless the link already has a valid href at click time.
+ * We set the href directly on the element so the browser sees it before any tap.
+ */
+function setLink(id, url){
+  var e = g(id);
+  if(!e) return;
+  // Fallback: if url is empty or null, disable the link gracefully
+  if(url && url !== '#'){
+    e.href = url;
+    e.removeAttribute('aria-disabled');
+    e.style.opacity = '1';
+    e.style.pointerEvents = 'auto';
+  } else {
+    e.href = '#';
+    e.setAttribute('aria-disabled', 'true');
+    e.style.opacity = '0.45';
+    e.style.pointerEvents = 'none';
+  }
+}
+
+/**
+ * handleBtnClick — called on click for both action buttons.
+ * Prevents default on iOS if href is still '#' (not yet set),
+ * otherwise lets the native link navigation happen.
+ */
+function handleBtnClick(event, btnId){
+  var el = g(btnId);
+  if(!el) return;
+  if(!el.href || el.href === '#' || el.href === window.location.href + '#'){
+    event.preventDefault();
+    return;
+  }
+  // Let native <a> navigation handle it — works on all platforms
+}
+
 function fmtDate(iso){
   return new Date(iso).toLocaleDateString('en-GB',
     {day:'numeric',month:'long',year:'numeric'});
@@ -996,10 +1086,14 @@ function populateBack(cert){
   setText('backCourse',   cert.course_name);
   setText('backHours',    cert.duration_hours);
   setText('backSessions', cert.sessions);
-  setHref('backStudentLink', cert.student_url || '#');
-  setText('backStudentTxt', 'Company LinkedIn Profile: ' + (cert.student_url || '\u2014'));
-  setHref('backProfileBtn', cert.student_url || '#');
-  setHref('backPdfBtn', cert.url);
+
+  // Profile button → student_url from JSON
+  setLink('backProfileBtn', cert.student_url || '');
+
+  // PDF button → url from JSON
+  setLink('backPdfBtn', cert.url || '');
+
+  // Status pill (optional element)
   var s = g('backStatus');
   if(s){ s.textContent = cert.status; s.className = 'status-pill ' + cert.status; }
 }
@@ -1022,7 +1116,7 @@ function showError(id){
   errorCard.classList.add('show');
 }
 
-// Click BACK → flip back to front
+// Click BACK face body → flip back to front
 cardBack.addEventListener('click', function(e){
   if(e.target.closest('a,button')) return;
   cardInner.classList.remove('flipped');
